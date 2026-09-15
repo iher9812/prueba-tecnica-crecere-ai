@@ -59,6 +59,18 @@ detalle completo en [`data/features/resultados_tests.csv`](data/features/resulta
 
 Ver el reporte ejecutivo: [`report/reporte_final.html`](report/reporte_final.html).
 
+**Contraste contra las hipótesis (sección 1):**
+
+| Hipótesis | Resultado |
+|---|---|
+| H1: IA al menos tan efectiva como humanos en compromiso de pago | ❌ Rechazada — humanos logran el doble (42% vs. 20%, p=0.03) |
+| H2: IA se contradice menos que los humanos | ❌ Rechazada — la IA se contradice muchísimo más (52% vs. 14%, p&lt;0.001) |
+| H3: IA repite más preguntas/datos que los humanos | ➖ No confirmada — sin diferencia significativa (p=0.42 y p=0.77) |
+| H4: humanos manejan mejor la confusión del cliente | ✅ Confirmada — 62% vs. 29% de confusiones bien resueltas (p=0.03) |
+
+Dos de las cuatro hipótesis iniciales resultaron rechazadas por los datos — en particular, se esperaba
+que la IA fuera más consistente que los humanos, y ocurrió lo contrario.
+
 ---
 
 ## 3. Metodología

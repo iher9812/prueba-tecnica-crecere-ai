@@ -78,7 +78,10 @@ def transcribe_audio(whisper_model, audio_path: Path):
 
 
 def diarize_audio(diarization_pipeline, audio_path: Path):
-    diarization = diarization_pipeline(str(audio_path))
+    # Todas las llamadas son de exactamente 2 personas (agente + cliente).
+    # Sin esta pista, pyannote a veces fusiona a ambos hablantes en uno solo
+    # cuando sus voces son parecidas o el audio es de baja calidad (telefonía).
+    diarization = diarization_pipeline(str(audio_path), num_speakers=2)
     turns = []
     for turn, _, speaker in diarization.itertracks(yield_label=True):
         turns.append({"inicio": turn.start, "fin": turn.end, "hablante_id": speaker})
