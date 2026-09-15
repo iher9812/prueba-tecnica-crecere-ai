@@ -1,14 +1,19 @@
-# Instalar primero PyTorch con soporte CUDA (no incluido aquí porque requiere
-# un índice especial). Ver README.md, sección "Reproducir el pipeline".
+# Instalar primero PyTorch con soporte CUDA (versión fijada, ver nota abajo):
 #
-#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126
+#   pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
 #
 # Luego instalar el resto:
 #
 #   pip install -r requirements.txt
+#
+# Nota sobre versiones: se fijan versiones "maduras" (no las últimas) porque
+# pyannote.audio depende de APIs de audio de torchaudio que las versiones más
+# recientes (torchaudio >= 2.9) eliminaron. torch/torchaudio 2.5.1 y
+# pyannote.audio 3.3.2 son de la misma época (fines de 2024/inicios 2025) y
+# son compatibles entre sí.
 
 faster-whisper==1.2.1
-pyannote.audio==4.0.7
+pyannote.audio==3.3.2
 pandas
 numpy
 scipy

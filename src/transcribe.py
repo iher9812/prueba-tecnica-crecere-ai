@@ -12,10 +12,35 @@ import json
 import os
 from pathlib import Path
 
+import torch
+
+import torchaudio
+import huggingface_hub
 from dotenv import load_dotenv
 from faster_whisper import WhisperModel
-from pyannote.audio import Pipeline
 from tqdm import tqdm
+
+# --- Shims de compatibilidad: pyannote.audio==3.3.2 es de 2024 y usa APIs
+# que las versiones recientes de sus dependencias ya eliminaron/renombraron.
+
+# torchaudio >= 2.9 eliminó `list_audio_backends`; pyannote todavía lo llama
+# para elegir el backend de audio. Forzamos "soundfile" (ya instalado).
+if not hasattr(torchaudio, "list_audio_backends"):
+    torchaudio.list_audio_backends = lambda: ["soundfile"]
+
+# huggingface_hub >= 1.0 renombró `use_auth_token` a `token` en hf_hub_download.
+_original_hf_hub_download = huggingface_hub.hf_hub_download
+
+
+def _hf_hub_download_compat(*args, **kwargs):
+    if "use_auth_token" in kwargs:
+        kwargs["token"] = kwargs.pop("use_auth_token")
+    return _original_hf_hub_download(*args, **kwargs)
+
+
+huggingface_hub.hf_hub_download = _hf_hub_download_compat
+
+from pyannote.audio import Pipeline
 
 load_dotenv()
 
@@ -38,7 +63,7 @@ def load_models():
     whisper_model = WhisperModel(WHISPER_MODEL, device=DEVICE, compute_type=COMPUTE_TYPE)
     diarization_pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-3.1", use_auth_token=HF_TOKEN
-    ).to("cuda")
+    ).to(torch.device("cuda"))
     return whisper_model, diarization_pipeline
 
 
@@ -70,13 +95,14 @@ def assign_speaker(segment, diarization_turns):
     return best_speaker
 
 
-def label_agente_cliente(segments):
+def label_agente_cliente(segments, primeros_n_turnos=8):
     """
-    Heurística: el hablante_id que más habla en los primeros 20s suele ser
-    el agente (quien abre la llamada). Se valida manualmente sobre una
-    muestra (ver README, sección Verificación).
+    Heurística: el hablante_id que más habla en los primeros turnos de la
+    llamada (no por marca de tiempo absoluta, porque puede haber silencio/
+    timbre al inicio) suele ser el agente, quien abre la gestión. Se valida
+    manualmente sobre una muestra (ver README, sección Verificación).
     """
-    apertura = [s for s in segments if s["inicio"] < 20]
+    apertura = segments[:primeros_n_turnos]
     conteo = {}
     for s in apertura:
         conteo[s["hablante_id"]] = conteo.get(s["hablante_id"], 0) + (s["fin"] - s["inicio"])

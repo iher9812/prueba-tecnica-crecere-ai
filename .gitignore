@@ -3,6 +3,7 @@
 
 # Python
 .venv/
+.venv312/
 __pycache__/
 *.pyc
 
@@ -16,6 +17,9 @@ Audios/
 .cache/
 *.ckpt
 *.bin
+
+# Run logs
+data/*.log
 
 # OS
 .DS_Store
