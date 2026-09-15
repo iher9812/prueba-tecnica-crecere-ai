@@ -1,0 +1,19 @@
+# Instalar primero PyTorch con soporte CUDA (no incluido aquí porque requiere
+# un índice especial). Ver README.md, sección "Reproducir el pipeline".
+#
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126
+#
+# Luego instalar el resto:
+#
+#   pip install -r requirements.txt
+
+faster-whisper==1.2.1
+pyannote.audio==4.0.7
+pandas
+numpy
+scipy
+statsmodels
+matplotlib
+python-dotenv
+requests
+tqdm

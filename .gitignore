@@ -1,0 +1,25 @@
+# Secrets — never commit
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Audio & heavy data (kept local, not pushed to GitHub)
+data/raw/
+data/transcripts/*.json
+!data/transcripts/.gitkeep
+Audios/
+
+# Model caches
+.cache/
+*.ckpt
+*.bin
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code session state
+.claude/
