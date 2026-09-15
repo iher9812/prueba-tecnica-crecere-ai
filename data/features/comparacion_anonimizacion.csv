@@ -1,0 +1,13 @@
+variable,coincidencia
+hubo_negociacion,0.97
+contactabilidad,0.96
+efectividad,0.94
+compromiso_pago,0.94
+dato_repetido,0.91
+contradiccion,0.86
+confusion_cliente,0.86
+confusion_resuelta,0.77
+manejo_objeciones,0.76
+claridad,0.66
+objeciones_count,0.65
+veces_repetido,0.46

@@ -20,25 +20,39 @@ from dotenv import load_dotenv
 from faster_whisper import WhisperModel
 from tqdm import tqdm
 
-# --- Shims de compatibilidad: pyannote.audio==3.3.2 es de 2024 y usa APIs
-# que las versiones recientes de sus dependencias ya eliminaron/renombraron.
 
-# torchaudio >= 2.9 eliminó `list_audio_backends`; pyannote todavía lo llama
-# para elegir el backend de audio. Forzamos "soundfile" (ya instalado).
-if not hasattr(torchaudio, "list_audio_backends"):
-    torchaudio.list_audio_backends = lambda: ["soundfile"]
+def aplicar_shims_compatibilidad():
+    """
+    Adapta dos APIs que pyannote.audio 3.3.2 (2024) espera y que sus
+    dependencias actuales ya eliminaron o renombraron.
 
-# huggingface_hub >= 1.0 renombró `use_auth_token` a `token` en hf_hub_download.
-_original_hf_hub_download = huggingface_hub.hf_hub_download
+    ALCANCE: ambos parches son de proceso, no de módulo. Es inevitable —
+    pyannote importa los símbolos dentro de sus propios módulos al cargarlos,
+    así que un parche acotado no lo alcanzaría. Por eso se aplican de forma
+    explícita y única antes de importar pyannote, en vez de quedar sueltos como
+    efecto secundario del import. Cualquier otra librería que corra en este
+    proceso verá el `hf_hub_download` adaptado.
+    """
+    # torchaudio >= 2.9 eliminó `list_audio_backends`. Solo se usa para elegir
+    # backend de lectura, y "soundfile" viene con pyannote.
+    if not hasattr(torchaudio, "list_audio_backends"):
+        torchaudio.list_audio_backends = lambda: ["soundfile"]
+
+    # huggingface_hub >= 1.0 renombró `use_auth_token` a `token`.
+    original = huggingface_hub.hf_hub_download
+    if getattr(original, "_shim_aplicado", False):
+        return
+
+    def hf_hub_download_compat(*args, **kwargs):
+        if "use_auth_token" in kwargs:
+            kwargs["token"] = kwargs.pop("use_auth_token")
+        return original(*args, **kwargs)
+
+    hf_hub_download_compat._shim_aplicado = True
+    huggingface_hub.hf_hub_download = hf_hub_download_compat
 
 
-def _hf_hub_download_compat(*args, **kwargs):
-    if "use_auth_token" in kwargs:
-        kwargs["token"] = kwargs.pop("use_auth_token")
-    return _original_hf_hub_download(*args, **kwargs)
-
-
-huggingface_hub.hf_hub_download = _hf_hub_download_compat
+aplicar_shims_compatibilidad()
 
 from pyannote.audio import Pipeline
 
@@ -49,7 +63,9 @@ RAW_DIRS = {
     "humano": ROOT / "data" / "raw" / "humanos",
     "ia": ROOT / "data" / "raw" / "ia",
 }
-OUT_DIR = ROOT / "data" / "transcripts"
+# Salida en cuarentena: estas transcripciones conservan los identificadores del
+# audio original. Alimentan únicamente a src/anonimizar.py, nunca al análisis.
+OUT_DIR = ROOT / "data" / "transcripts_crudas"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 WHISPER_MODEL = "medium"  # balance velocidad/calidad para 6+ horas de audio

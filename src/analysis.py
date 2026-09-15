@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 from scipy import stats
+from statsmodels.stats.multitest import multipletests
 
 ROOT = Path(__file__).resolve().parent.parent
 DATASET_PATH = ROOT / "data" / "features" / "dataset.csv"
@@ -123,6 +124,17 @@ def main():
     resultados.extend(r for r in condicionales if r is not None)
 
     resultados_df = pd.DataFrame(resultados).sort_values("p_valor")
+
+    # Se contrastan 17 variables sobre la misma muestra: sin corregir, se
+    # esperaría ~1 falso positivo solo por azar. Benjamini-Hochberg controla la
+    # tasa de falsos descubrimientos sin ser tan conservador como Bonferroni.
+    p = resultados_df["p_valor"].values
+    resultados_df["p_valor_fdr"] = multipletests(p, alpha=0.05, method="fdr_bh")[1]
+    resultados_df["significativo_fdr"] = multipletests(p, alpha=0.05, method="fdr_bh")[0]
+    resultados_df["significativo_bonferroni"] = multipletests(
+        p, alpha=0.05, method="bonferroni"
+    )[0]
+
     resultados_df.to_csv(OUT_PATH, index=False, encoding="utf-8")
     print(f"Resultados guardados en {OUT_PATH}")
     print(resultados_df.to_string(index=False))

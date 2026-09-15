@@ -32,7 +32,9 @@ from tqdm import tqdm
 load_dotenv()
 
 ROOT = Path(__file__).resolve().parent.parent
-TRANSCRIPTS_DIR = ROOT / "data" / "transcripts"
+# Se consume la carpeta anonimizada por defecto: el camino seguro es el
+# predeterminado, no una opción. Ver src/anonimizar.py.
+TRANSCRIPTS_DIR = ROOT / "data" / "transcripts_anonimizado"
 CHECKPOINT_DIR = ROOT / "data" / "features" / "checkpoint"
 OUT_PATH = ROOT / "data" / "features" / "dataset.csv"
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
@@ -74,6 +76,54 @@ Sé estricto: si no hay evidencia clara en el texto, usa el valor más conservad
 """
 
 
+ESQUEMA = {
+    "contactabilidad": bool,
+    "efectividad": bool,
+    "hubo_negociacion": bool,
+    "compromiso_pago": bool,
+    "objeciones_count": int,
+    "manejo_objeciones": {"bueno", "regular", "malo", "no_aplica"},
+    "resultado_final": str,
+    "claridad": range(1, 6),
+    "dato_repetido": bool,
+    "veces_repetido": int,
+    "contradiccion": bool,
+    "confusion_cliente": bool,
+    "confusion_resuelta": {"bien", "mal", "no_aplica"},
+}
+
+
+class RespuestaInvalida(ValueError):
+    """La respuesta del LLM no cumple el esquema esperado."""
+
+
+def validar(juicio: dict) -> dict:
+    """
+    Rechaza respuestas que no cumplan el esquema. Sin esto, una alucinación de
+    formato entra al dataset sin resistencia: un `claridad` de 99 o un
+    `confusion_resuelta` inventado contaminarían el análisis en silencio.
+    """
+    faltantes = set(ESQUEMA) - set(juicio)
+    if faltantes:
+        raise RespuestaInvalida(f"faltan claves: {sorted(faltantes)}")
+
+    for clave, esperado in ESQUEMA.items():
+        valor = juicio[clave]
+        if isinstance(esperado, set):
+            if valor not in esperado:
+                raise RespuestaInvalida(f"{clave}={valor!r} fuera de {sorted(esperado)}")
+        elif isinstance(esperado, range):
+            if not isinstance(valor, int) or isinstance(valor, bool) or valor not in esperado:
+                raise RespuestaInvalida(f"{clave}={valor!r} fuera de rango")
+        elif esperado is int:
+            # bool es subclase de int en Python: hay que excluirlo explícitamente.
+            if not isinstance(valor, int) or isinstance(valor, bool) or valor < 0:
+                raise RespuestaInvalida(f"{clave}={valor!r} no es un entero no negativo")
+        elif not isinstance(valor, esperado):
+            raise RespuestaInvalida(f"{clave}={valor!r} no es {esperado.__name__}")
+    return juicio
+
+
 def call_kimi(texto_completo: str, max_retries: int = 3) -> dict:
     headers = {"Authorization": f"Bearer {KIMI_API_KEY}", "Content-Type": "application/json"}
     payload = {
@@ -95,8 +145,8 @@ def call_kimi(texto_completo: str, max_retries: int = 3) -> dict:
             resp.raise_for_status()
             content = resp.json()["choices"][0]["message"]["content"].strip()
             content = content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-            return json.loads(content)
-        except (requests.RequestException, json.JSONDecodeError, KeyError):
+            return validar(json.loads(content))
+        except (requests.RequestException, json.JSONDecodeError, KeyError, RespuestaInvalida):
             if attempt == max_retries - 1:
                 raise
             time.sleep(5 * (attempt + 1))
@@ -141,6 +191,20 @@ def process_one(path: Path) -> dict:
 
 
 def main():
+    # El análisis solo puede consumir datos anonimizados. Se verifica como
+    # mecanismo y no como convención: esta etapa envía el texto a una API
+    # externa, así que apuntarla a la carpeta cruda sería una fuga.
+    if "anonimizado" not in TRANSCRIPTS_DIR.name:
+        raise SystemExit(
+            f"BLOQUEADO: TRANSCRIPTS_DIR apunta a '{TRANSCRIPTS_DIR.name}', que no es una "
+            "carpeta anonimizada. Esta etapa envía el texto a una API externa y solo puede "
+            "leer de data/transcripts_anonimizado/. Corre antes: python src/anonimizar.py"
+        )
+    if not TRANSCRIPTS_DIR.exists():
+        raise SystemExit(
+            f"No existe {TRANSCRIPTS_DIR}. Corre antes: python src/anonimizar.py"
+        )
+
     if not KIMI_API_KEY:
         raise SystemExit(
             "Falta KIMI_API_KEY en .env. Abre el archivo .env y pega tu clave ahí "

@@ -1,15 +1,18 @@
 """
-Envoltorio temporal: corre transcribe.py con un límite de tiempo por archivo.
+Corre transcribe.py con un límite de tiempo por archivo.
 
-Algunos audios provocan que el clustering de pyannote se dispare (no es
-proporcional a la duración del audio — un archivo de ~10 min normal tarda
-~1 min, pero algunos tardan 15+ min sin terminar). Este watchdog mata y
-reinicia el proceso si pasan más de TIMEOUT_SEG sin que aparezca un
-archivo nuevo en data/transcripts/, y marca el archivo atascado como
-fallido (para que el checkpoint de transcribe.py lo salte al reiniciar).
+El costo de la diarización de pyannote no es proporcional a la duración del
+audio: depende del número de segmentos de habla, así que una llamada con
+muchos turnos cortos puede tardar 15+ minutos mientras otra más larga tarda
+uno. Sin una salvaguarda, un solo archivo patológico bloquea el lote entero.
+
+Este watchdog vigila el avance sobre data/transcripts_crudas/. Si pasan más de
+TIMEOUT_SEG sin que aparezca un archivo nuevo, mata el proceso, marca el
+archivo atascado como fallido — para que el checkpoint de transcribe.py lo
+salte — y relanza para continuar con el resto.
 
 Uso:
-    python src/_watchdog_transcribe.py
+    python src/watchdog_transcribe.py
 """
 import json
 import subprocess
@@ -19,7 +22,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW_DIRS = {"humano": ROOT / "data" / "raw" / "humanos", "ia": ROOT / "data" / "raw" / "ia"}
-OUT_DIR = ROOT / "data" / "transcripts"
+OUT_DIR = ROOT / "data" / "transcripts_crudas"
 PYTHON = ROOT / ".venv312" / "Scripts" / "python.exe"
 SCRIPT = ROOT / "src" / "transcribe.py"
 

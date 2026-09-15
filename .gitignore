@@ -9,10 +9,23 @@ __pycache__/
 
 # Audio & heavy data (kept local, not pushed to GitHub)
 data/raw/
-data/transcripts/*.json
-!data/transcripts/.gitkeep
-data/features/checkpoint/
+data/features/checkpoint*/
 Audios/
+
+# Transcripciones crudas (con identificadores) y anonimizadas.
+# Las crudas están en cuarentena: solo alimentan al anonimizador.
+# Las anonimizadas tampoco se publican, porque la anonimización por reglas no
+# garantiza recall perfecto.
+# Se versiona únicamente el LEEME de cada carpeta: así el repo documenta la
+# cadena de tratamiento en el lugar exacto donde ocurre, sin publicar datos.
+data/transcripts_crudas/*
+!data/transcripts_crudas/LEEME.md
+data/transcripts_anonimizado/*
+!data/transcripts_anonimizado/LEEME.md
+
+# Reportes de auditoría de la anonimización: son el único lugar donde los
+# valores originales aparecen en contexto, para revisión humana local.
+data/anonimizacion/
 
 # Model caches
 .cache/
